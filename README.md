@@ -26,7 +26,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 3. Running Automated Tests
 ```powershell
-py -m pytest backend/tests/test_supplychain.py -v
+py -m pytest backend/tests -v
 ```
 
 ## Documentation & Reports
