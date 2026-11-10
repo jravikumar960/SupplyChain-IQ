@@ -1,0 +1,6 @@
+anomaly_id,type,entity_id,description
+ISSUE-001,INBOUND_COUNTED_TWICE,PO-2026-000001,Duplicate purchase order injected for double-counting test.
+ISSUE-002,SUBSTITUTE_NOT_APPROVED,SUB-SKU-000005-SKU-000026,Unapproved SKU substitute injected to test automated mitigation blocking.
+ISSUE-003,SUPPLIER_CAPACITY_EXCEEDED,CAP-SUP-000001-SKU-000026,Supplier capacity violation injected.
+ISSUE-004,SHORTAGE_WITHOUT_LEAD_TIME,SKU-000002,Shortage with missing lead time injected.
+ISSUE-005,UNIT_OF_MEASURE_MISMATCH,SKU-000003,Unit of measure mismatch injected.

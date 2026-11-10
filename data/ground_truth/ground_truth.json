@@ -1,0 +1,32 @@
+[
+  {
+    "anomaly_id": "ISSUE-001",
+    "type": "INBOUND_COUNTED_TWICE",
+    "entity_id": "PO-2026-000001",
+    "description": "Duplicate purchase order injected for double-counting test."
+  },
+  {
+    "anomaly_id": "ISSUE-002",
+    "type": "SUBSTITUTE_NOT_APPROVED",
+    "entity_id": "SUB-SKU-000005-SKU-000026",
+    "description": "Unapproved SKU substitute injected to test automated mitigation blocking."
+  },
+  {
+    "anomaly_id": "ISSUE-003",
+    "type": "SUPPLIER_CAPACITY_EXCEEDED",
+    "entity_id": "CAP-SUP-000001-SKU-000026",
+    "description": "Supplier capacity violation injected."
+  },
+  {
+    "anomaly_id": "ISSUE-004",
+    "type": "SHORTAGE_WITHOUT_LEAD_TIME",
+    "entity_id": "SKU-000002",
+    "description": "Shortage with missing lead time injected."
+  },
+  {
+    "anomaly_id": "ISSUE-005",
+    "type": "UNIT_OF_MEASURE_MISMATCH",
+    "entity_id": "SKU-000003",
+    "description": "Unit of measure mismatch injected."
+  }
+]
