@@ -58,6 +58,7 @@ class Inventory(Base):
     on_hand_quantity = Column(Float, nullable=False)
     reserved_quantity = Column(Float, nullable=False)
     safety_stock = Column(Float, nullable=False)
+    unit_of_measure = Column(String, nullable=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     sku = relationship("SKU", back_populates="inventories")
@@ -111,6 +112,7 @@ class PurchaseOrder(Base):
     expected_delivery_date = Column(String, nullable=False)
     status = Column(String, nullable=False, index=True) # Pending, Received, Delayed, Cancelled
     is_duplicate = Column(Boolean, default=False, index=True) # For anomaly A
+    unit_of_measure = Column(String, nullable=True)
 
     supplier = relationship("Supplier", back_populates="purchase_orders")
     sku = relationship("SKU", back_populates="purchase_orders")
@@ -172,6 +174,7 @@ class BOM(Base):
     parent_sku_id = Column(String, ForeignKey("skus.sku_id"), nullable=False)
     component_sku_id = Column(String, ForeignKey("skus.sku_id"), nullable=False)
     quantity_required = Column(Float, nullable=False)
+    component_unit_of_measure = Column(String, nullable=True)
 
     parent_sku = relationship("SKU", foreign_keys=[parent_sku_id], back_populates="bom_parents")
     component_sku = relationship("SKU", foreign_keys=[component_sku_id], back_populates="bom_components")
@@ -237,6 +240,15 @@ class DataIssue(Base):
     severity = Column(String, nullable=False)
     explanation = Column(Text, nullable=False)
     resolution_status = Column(String, nullable=False) # Detected, Flagged, Resolved
+
+class DetectorExecution(Base):
+    __tablename__ = "detector_executions"
+    execution_id = Column(String, primary_key=True, index=True)
+    evaluation_run_id = Column(String, nullable=False, index=True)
+    detector_type = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False, index=True)
+    entity_id = Column(String, nullable=False, index=True)
+    executed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class SimulationRun(Base):
     __tablename__ = "simulation_runs"

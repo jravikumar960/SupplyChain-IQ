@@ -26,8 +26,7 @@ def get_db():
 def run_database_migrations(db_path: str = DB_PATH):
     """
     Safely and idempotently inspects the database schema and applies missing columns
-    (such as supplier_id and feasibility_explanation on mitigation_options)
-    without dropping, resetting, or overwriting existing records.
+    and tables without dropping, resetting, or overwriting existing records.
     """
     if not os.path.exists(os.path.dirname(db_path)):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -35,23 +34,56 @@ def run_database_migrations(db_path: str = DB_PATH):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     try:
-        # Check if table mitigation_options exists
+        # Check mitigation_options table
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='mitigation_options';")
-        table_exists = cursor.fetchone()
-
-        if table_exists:
+        if cursor.fetchone():
             cursor.execute("PRAGMA table_info(mitigation_options);")
-            columns = cursor.fetchall()
-            column_names = [col[1] for col in columns]
-
-            # Idempotently add feasibility_explanation if missing
-            if "feasibility_explanation" not in column_names:
+            col_names = [col[1] for col in cursor.fetchall()]
+            if "feasibility_explanation" not in col_names:
                 cursor.execute("ALTER TABLE mitigation_options ADD COLUMN feasibility_explanation TEXT;")
                 conn.commit()
-
-            # Idempotently add supplier_id if missing
-            if "supplier_id" not in column_names:
+            if "supplier_id" not in col_names:
                 cursor.execute("ALTER TABLE mitigation_options ADD COLUMN supplier_id TEXT;")
                 conn.commit()
+
+        # Check inventories table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='inventories';")
+        if cursor.fetchone():
+            cursor.execute("PRAGMA table_info(inventories);")
+            col_names = [col[1] for col in cursor.fetchall()]
+            if "unit_of_measure" not in col_names:
+                cursor.execute("ALTER TABLE inventories ADD COLUMN unit_of_measure TEXT;")
+                conn.commit()
+
+        # Check purchase_orders table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='purchase_orders';")
+        if cursor.fetchone():
+            cursor.execute("PRAGMA table_info(purchase_orders);")
+            col_names = [col[1] for col in cursor.fetchall()]
+            if "unit_of_measure" not in col_names:
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN unit_of_measure TEXT;")
+                conn.commit()
+
+        # Check boms table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='boms';")
+        if cursor.fetchone():
+            cursor.execute("PRAGMA table_info(boms);")
+            col_names = [col[1] for col in cursor.fetchall()]
+            if "component_unit_of_measure" not in col_names:
+                cursor.execute("ALTER TABLE boms ADD COLUMN component_unit_of_measure TEXT;")
+                conn.commit()
+
+        # Ensure detector_executions table exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS detector_executions (
+                execution_id TEXT PRIMARY KEY,
+                evaluation_run_id TEXT NOT NULL,
+                detector_type TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_id TEXT NOT NULL,
+                executed_at DATETIME
+            );
+        """)
+        conn.commit()
     finally:
         conn.close()

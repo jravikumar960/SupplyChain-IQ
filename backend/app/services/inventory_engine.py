@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
-from backend.app.models.models import Inventory, PurchaseOrder, ProductionPlan, ForecastDemand
+from backend.app.models.models import Inventory, PurchaseOrder, ProductionPlan, ForecastDemand, SKU, DataIssue
+from backend.app.services.uom_engine import validate_uom_compatibility
 
 def date_to_week_str(date_str: str) -> str:
     if not date_str:
@@ -28,7 +29,6 @@ def calculate_projected_inventory(db: Session, sku_id: str, location_id: str, we
     else:
         weeks = sorted(list(set(weeks)))
 
-    # Ensure week_start is in weeks, or add and sort
     if week_start not in weeks:
         weeks.append(week_start)
         weeks = sorted(list(set(weeks)))
@@ -39,6 +39,10 @@ def calculate_projected_inventory(db: Session, sku_id: str, location_id: str, we
     reserved = inv.reserved_quantity if inv else 0.0
     safety = inv.safety_stock if inv else 0.0
     current_opening = max(0.0, opening_on_hand - reserved)
+
+    # Establish canonical inventory unit for this SKU
+    sku_rec = db.query(SKU).filter(SKU.sku_id == sku_id).first()
+    canonical_uom = (inv.unit_of_measure if inv and inv.unit_of_measure else None) or (sku_rec.unit_of_measure if sku_rec else None)
 
     # Fetch all valid POs and Production plans for this SKU/location
     all_pos = db.query(PurchaseOrder).filter(
@@ -57,14 +61,87 @@ def calculate_projected_inventory(db: Session, sku_id: str, location_id: str, we
     target_result = None
 
     for w in weeks:
-        # 1. Inbound PO receipts expected in week w (matched via date conversion to ISO week)
-        week_inbound = sum(
-            po.received_quantity if po.status == "Received" else po.ordered_quantity
-            for po in all_pos
-            if date_to_week_str(str(po.expected_delivery_date)) == w
-        )
+        # 1. Inbound PO receipts expected in week w with strict operational UOM validation & idempotent deduplicated validation issue recording
+        week_inbound = 0.0
+        for po in all_pos:
+            if date_to_week_str(str(po.expected_delivery_date)) == w:
+                po_qty = po.received_quantity if po.status == "Received" else po.ordered_quantity
+                po_uom = po.unit_of_measure
 
-        # 2. Production receipts expected in week w (matched via production_end or start converted to ISO week)
+                # Rule 1: Missing PO UOM -> exclude quantity and record idempotent validation issue
+                if not po_uom or not isinstance(po_uom, str) or not po_uom.strip():
+                    issue_id = f"ISSUE-UOM-PO-{po.po_id}"
+                    existing_issue = db.query(DataIssue).filter_by(issue_id=issue_id).first()
+                    if not existing_issue:
+                        issue = DataIssue(
+                            issue_id=issue_id,
+                            issue_type="UNIT_OF_MEASURE_MISMATCH",
+                            affected_entity_type="PurchaseOrder",
+                            affected_entity_id=po.po_id,
+                            detection_result="Missing PO unit of measure specification",
+                            severity="Medium",
+                            explanation="Purchase order is missing required unit of measure specification. Inbound quantity excluded.",
+                            resolution_status="Flagged"
+                        )
+                        db.add(issue)
+                        try:
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+                    continue
+
+                # Rule 2: Missing canonical UOM -> exclude quantity and record idempotent validation issue
+                if not canonical_uom:
+                    issue_id = f"ISSUE-UOM-SKU-{sku_id}"
+                    existing_issue = db.query(DataIssue).filter_by(issue_id=issue_id).first()
+                    if not existing_issue:
+                        issue = DataIssue(
+                            issue_id=issue_id,
+                            issue_type="UNIT_OF_MEASURE_MISMATCH",
+                            affected_entity_type="SKU",
+                            affected_entity_id=sku_id,
+                            detection_result="Missing canonical inventory unit of measure",
+                            severity="Medium",
+                            explanation="SKU/Inventory record is missing required canonical unit of measure specification. Inbound quantity excluded.",
+                            resolution_status="Flagged"
+                        )
+                        db.add(issue)
+                        try:
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+                    continue
+
+                # Rule 3, 4, 5: Validate compatibility & conversion factors
+                conversion_map = getattr(po, "conversion_map", None)
+                target_sku_id = getattr(po, "target_sku_id", None)
+                compat, exp, factor = validate_uom_compatibility(po_uom, canonical_uom, conversion_map=conversion_map, sku_id=sku_id, target_sku_id=target_sku_id)
+
+                if compat:
+                    week_inbound += po_qty * factor
+                else:
+                    # Rule 3: Unsupported/incompatible conversion -> exclude quantity and record idempotent validation issue
+                    issue_id = f"ISSUE-UOM-MISMATCH-{po.po_id}"
+                    existing_issue = db.query(DataIssue).filter_by(issue_id=issue_id).first()
+                    if not existing_issue:
+                        issue = DataIssue(
+                            issue_id=issue_id,
+                            issue_type="UNIT_OF_MEASURE_MISMATCH",
+                            affected_entity_type="PurchaseOrder",
+                            affected_entity_id=po.po_id,
+                            detection_result=exp,
+                            severity="Medium",
+                            explanation=f"UOM incompatibility between PO ({po_uom}) and Inventory ({canonical_uom}): {exp}. Inbound quantity excluded.",
+                            resolution_status="Flagged"
+                        )
+                        db.add(issue)
+                        try:
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+                    pass
+
+        # 2. Production receipts expected in week w
         week_prod = sum(
             p.planned_quantity
             for p in all_prods
@@ -98,7 +175,6 @@ def calculate_projected_inventory(db: Session, sku_id: str, location_id: str, we
             target_result = res
             break
 
-        # Sequential carry-over to next week's opening inventory (carrying over negative balances as backorders/deficits)
         current_opening = closing
 
     if not target_result:

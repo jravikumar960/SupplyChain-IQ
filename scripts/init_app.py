@@ -9,8 +9,8 @@ from backend.app.services.shortage_engine import detect_and_save_shortages
 from backend.app.services.mitigation_engine import generate_mitigations_for_shortages
 
 if __name__ == "__main__":
-    print("Initializing SupplyChain IQ dataset and running engines...")
-    generate_synthetic_data()
+    print("Initializing SupplyChain IQ dataset with explicit reset and running engines...")
+    generate_synthetic_data(reset=True)
     db = SessionLocal()
     sc = detect_and_save_shortages(db)
     mc = generate_mitigations_for_shortages(db)

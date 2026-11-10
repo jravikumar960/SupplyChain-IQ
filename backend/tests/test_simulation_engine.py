@@ -6,7 +6,7 @@ import json
 
 from backend.app.database import Base
 from backend.app.models.models import (
-    SKU, Location, Inventory, ForecastDemand, PurchaseOrder, ProductionPlan, Shortage, SimulationRun, SupplierCapacity
+    SKU, Location, Inventory, ForecastDemand, PurchaseOrder, ProductionPlan, Shortage, SimulationRun, SupplierCapacity, DataIssue, DetectorExecution
 )
 from backend.app.services.simulation_engine import run_simulation
 from backend.app.services.inventory_engine import calculate_projected_inventory
@@ -152,3 +152,55 @@ def test_20_multi_sku_multi_location_correctness(sim_db):
     run = run_simulation(sim_db, "Multi SKU Loc", demand_multiplier=2.0, supplier_capacity_multiplier=0.5, lead_time_delay_days=10)
     assert run.affected_skus_count >= 1
     assert run.affected_locations_count >= 1
+
+def test_21_simulation_operational_issue_immutability(sim_db):
+    # 1. Insert a purchase order with an incompatible/invalid UOM that would normally trigger DataIssue in inventory projection
+    po_bad = PurchaseOrder(
+        po_id="PO-SIM-BAD-UOM",
+        supplier_id="SUP-1",
+        sku_id="SKU-SIM-1",
+        location_id="LOC-SIM-1",
+        ordered_quantity=500.0,
+        received_quantity=0.0,
+        expected_delivery_date="2026-01-05",
+        status="Pending",
+        is_duplicate=False,
+        unit_of_measure="UNKNOWN_UOM"
+    )
+    sim_db.add(po_bad)
+
+    # 2. Insert representative pre-existing DataIssue and DetectorExecution records
+    issue_pre = DataIssue(
+        issue_id="ISSUE-PRE-1",
+        issue_type="UNIT_OF_MEASURE_MISMATCH",
+        affected_entity_type="PurchaseOrder",
+        affected_entity_id="PO-SIM-BAD-UOM",
+        detection_result="Incompatible UOM",
+        severity="Medium",
+        explanation="Pre-existing issue",
+        resolution_status="Flagged"
+    )
+    exec_pre = DetectorExecution(
+        execution_id="EXEC-PRE-1",
+        evaluation_run_id="RUN-TEST-SIM",
+        detector_type="UNIT_OF_MEASURE_MISMATCH",
+        entity_type="PurchaseOrder",
+        entity_id="PO-SIM-BAD-UOM"
+    )
+    sim_db.add_all([issue_pre, exec_pre])
+    sim_db.commit()
+
+    # 3. Snapshot DataIssue and DetectorExecution state before simulation
+    issues_before = {i.issue_id: (i.issue_type, i.affected_entity_id, i.explanation) for i in sim_db.query(DataIssue).all()}
+    execs_before = {e.execution_id: (e.evaluation_run_id, e.detector_type, e.entity_id) for e in sim_db.query(DetectorExecution).all()}
+
+    # 4. Execute Phase 4 scenario simulation
+    run_simulation(sim_db, "Immutability Stress Test", demand_multiplier=1.2, supplier_capacity_multiplier=0.9, lead_time_delay_days=5)
+
+    # 5. Query DataIssue and DetectorExecution state after simulation
+    issues_after = {i.issue_id: (i.issue_type, i.affected_entity_id, i.explanation) for i in sim_db.query(DataIssue).all()}
+    execs_after = {e.execution_id: (e.evaluation_run_id, e.detector_type, e.entity_id) for e in sim_db.query(DetectorExecution).all()}
+
+    # 6. Assert complete record immutability
+    assert issues_before == issues_after, "Phase 4 simulation modified or created DataIssue records!"
+    assert execs_before == execs_after, "Phase 4 simulation modified or created DetectorExecution records!"
