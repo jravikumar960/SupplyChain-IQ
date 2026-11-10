@@ -64,7 +64,7 @@ def evaluate_system_performance(db: Session) -> dict:
 
     anomaly_detection_rate = round(min(1.0, total_issues / gt_count) * 100.0, 2) if gt_count > 0 else 100.0
     supplier_feasibility_rate = round((feasible_mitigations / max(1, total_mitigations)) * 100.0, 2)
-    demand_coverage = round((baseline_fulfilled / max(1.0, total_demand_qty)) * 100.0, 2)
+    demand_coverage = round(max(0.0, min(100.0, ((total_demand_qty - min(total_shortage_qty, total_demand_qty)) / max(1.0, total_demand_qty)) * 100.0)), 2)
     shortage_precision = 98.2
     shortage_recall = 96.8
     cost_impact = sum(m.estimated_cost for m in approved_mits)

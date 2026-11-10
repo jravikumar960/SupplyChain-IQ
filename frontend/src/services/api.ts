@@ -69,3 +69,19 @@ export async function generateData() {
   const res = await fetch(`${API_BASE}/data/generate`, { method: 'POST' });
   return res.json();
 }
+
+export async function runSimulation(runName: string, demandMultiplier: number, capacityMultiplier: number, delayDays: number) {
+  const params = new URLSearchParams({
+    run_name: runName,
+    demand_multiplier: demandMultiplier.toString(),
+    supplier_capacity_multiplier: capacityMultiplier.toString(),
+    lead_time_delay_days: delayDays.toString(),
+  });
+  const res = await fetch(`${API_BASE}/simulation/run?${params.toString()}`, { method: 'POST' });
+  return res.json();
+}
+
+export async function fetchSimulationHistory() {
+  const res = await fetch(`${API_BASE}/simulation/history`);
+  return res.json();
+}

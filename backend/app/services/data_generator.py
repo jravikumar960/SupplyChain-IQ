@@ -2,7 +2,7 @@ import os
 import json
 import random
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from backend.app.database import SessionLocal, engine
 from backend.app.models.models import (
     Base, SKU, Location, ForecastDemand, Inventory, Supplier,
@@ -103,7 +103,7 @@ def generate_synthetic_data(num_skus=100, num_locations=10, num_weeks=12, num_su
                 on_hand_quantity=on_hand,
                 reserved_quantity=round(on_hand * 0.05, 2),
                 safety_stock=safety,
-                updated_at=datetime.utcnow()
+                updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
             )
             db.add(inventory)
     db.commit()

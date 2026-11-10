@@ -8,7 +8,8 @@ import {
   AlertOctagon,
   BarChart3,
   RefreshCw,
-  Cpu
+  Cpu,
+  Sliders
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab, onR
     { id: 'mitigations', label: 'Mitigation Recommendations', icon: ShieldCheck },
     { id: 'suppliers', label: 'Supplier Management', icon: Truck },
     { id: 'inventory', label: 'Inventory & Demand', icon: Boxes },
+    { id: 'simulation', label: 'Scenario Simulation', icon: Sliders },
     { id: 'exceptions', label: 'Exception Center', icon: AlertOctagon },
     { id: 'evaluation', label: 'Data Quality & Eval', icon: BarChart3 },
   ];

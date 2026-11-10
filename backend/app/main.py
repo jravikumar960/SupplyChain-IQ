@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import datetime
+from sqlalchemy import func
+from datetime import datetime, timezone
 import pandas as pd
 import os
 
 from backend.app.database import get_db, SessionLocal
 from backend.app.models.models import (
     SKU, Location, Supplier, Inventory, ForecastDemand, Shortage,
-    MitigationOption, MitigationDecision, DataIssue, AuditLog, PurchaseOrder
+    MitigationOption, MitigationDecision, DataIssue, AuditLog, PurchaseOrder, SimulationRun
 )
 from backend.app.services.data_generator import generate_synthetic_data
 from backend.app.services.shortage_engine import detect_and_save_shortages
@@ -16,6 +17,7 @@ from backend.app.services.mitigation_engine import generate_mitigations_for_shor
 from backend.app.services.validation_engine import run_validation
 from backend.app.services.evaluation_engine import evaluate_system_performance
 from backend.app.services.audit_engine import log_audit_event
+from backend.app.services.simulation_engine import run_simulation
 
 app = FastAPI(
     title="SupplyChain IQ — Intelligent Demand & Inventory Optimization System",
@@ -33,17 +35,17 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/dashboard/summary")
 def get_dashboard_summary(db: Session = Depends(get_db)):
     total_skus = db.query(SKU).count()
     total_locations = db.query(Location).count()
     total_suppliers = db.query(Supplier).count()
-    total_demand = sum(d.forecast_quantity for d in db.query(ForecastDemand).all())
+    total_demand = db.query(func.sum(ForecastDemand.forecast_quantity)).scalar() or 0.0
     total_shortages = db.query(Shortage).count()
     critical_shortages = db.query(Shortage).filter(Shortage.severity == "Critical").count()
-    total_exposure = sum(s.shortage_quantity for s in db.query(Shortage).all())
+    total_exposure = db.query(func.sum(Shortage.shortage_quantity)).scalar() or 0.0
     exceptions_count = db.query(DataIssue).count()
 
     return {
@@ -62,26 +64,21 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
 
 @app.get("/api/dashboard/charts")
 def get_dashboard_charts(db: Session = Depends(get_db)):
-    # Shortages by severity
-    sev_counts = {}
-    for sev in ["Critical", "High", "Medium", "Low"]:
-        cnt = db.query(Shortage).filter(Shortage.severity == sev).count()
+    # Shortages by severity using group_by
+    sev_counts = {sev: 0 for sev in ["Critical", "High", "Medium", "Low"]}
+    sev_rows = db.query(Shortage.severity, func.count(Shortage.shortage_id)).group_by(Shortage.severity).all()
+    for sev, cnt in sev_rows:
         sev_counts[sev] = cnt
 
-    # Shortages by root cause
+    # Shortages by root cause using group_by
     cause_counts = {}
-    causes = db.query(Shortage.root_cause).distinct().all()
-    for (cause,) in causes:
-        cnt = db.query(Shortage).filter(Shortage.root_cause == cause).count()
+    cause_rows = db.query(Shortage.root_cause, func.count(Shortage.shortage_id)).group_by(Shortage.root_cause).all()
+    for cause, cnt in cause_rows:
         cause_counts[cause] = cnt
 
-    # Demand vs Available by week
-    weekly_demand = {}
-    demands = db.query(ForecastDemand).all()
-    for d in demands:
-        weekly_demand[d.week_start] = weekly_demand.get(d.week_start, 0.0) + d.forecast_quantity
-
-    weekly_trend = [{"week": w, "forecast_demand": round(q, 2)} for w, q in sorted(weekly_demand.items())]
+    # Demand vs Available by week using group_by
+    demand_rows = db.query(ForecastDemand.week_start, func.sum(ForecastDemand.forecast_quantity)).group_by(ForecastDemand.week_start).all()
+    weekly_trend = [{"week": w, "forecast_demand": round(q, 2)} for w, q in sorted(demand_rows)]
 
     return {
         "shortages_by_severity": sev_counts,
@@ -139,6 +136,9 @@ def approve_mitigation(mitigation_id: str, db: Session = Depends(get_db)):
     if mit.feasibility_status == "Infeasible":
         raise HTTPException(status_code=400, detail="Cannot approve an infeasible mitigation option (e.g. unapproved substitute or capacity violation)")
 
+    if mit.is_approved:
+        raise HTTPException(status_code=400, detail="Mitigation option is already approved (duplicate approval prevented)")
+
     mit.is_approved = True
 
     # Update shortage status
@@ -146,19 +146,38 @@ def approve_mitigation(mitigation_id: str, db: Session = Depends(get_db)):
     if shortage:
         shortage.status = "Mitigated"
 
+    # Execute Purchase Order if applicable
+    if mit.mitigation_type in ["SupplierPO", "AlternativeSupplier"]:
+        parts = mit.mitigation_id.split("-")
+        supplier_id = parts[-1] if len(parts) > 3 else "SUP-01"
+        existing_po = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == f"PO-EXEC-{mit.mitigation_id}").first()
+        if not existing_po:
+            new_po = PurchaseOrder(
+                po_id=f"PO-EXEC-{mit.mitigation_id}",
+                supplier_id=supplier_id,
+                sku_id=shortage.sku_id if shortage else "SKU-01",
+                location_id=shortage.location_id if shortage else "LOC-01",
+                ordered_quantity=mit.proposed_quantity,
+                received_quantity=0.0,
+                expected_delivery_date=mit.expected_arrival_date,
+                status="Pending",
+                is_duplicate=False
+            )
+            db.add(new_po)
+
     decision = MitigationDecision(
-        decision_id=f"DEC-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+        decision_id=f"DEC-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
         mitigation_id=mitigation_id,
         decision_status="Approved",
-        decided_at=datetime.utcnow(),
+        decided_at=datetime.now(timezone.utc).replace(tzinfo=None),
         user_notes="Approved via SupplyChain IQ Dashboard"
     )
     db.add(decision)
     db.commit()
 
-    log_audit_event(db, "MitigationOption", mitigation_id, "APPROVE", "Unapproved", "Approved", f"Mitigation {mitigation_id} approved by user.")
+    log_audit_event(db, "MitigationOption", mitigation_id, "APPROVE", "Unapproved", "Approved", f"Mitigation {mitigation_id} approved by user, executing purchase order / action.")
 
-    return {"status": "success", "mitigation_id": mitigation_id, "message": "Mitigation approved and recorded in audit log."}
+    return {"status": "success", "mitigation_id": mitigation_id, "message": "Mitigation approved, purchase order executed, and recorded in audit log."}
 
 @app.post("/api/mitigations/{mitigation_id}/reject")
 def reject_mitigation(mitigation_id: str, db: Session = Depends(get_db)):
@@ -168,10 +187,10 @@ def reject_mitigation(mitigation_id: str, db: Session = Depends(get_db)):
 
     mit.is_approved = False
     decision = MitigationDecision(
-        decision_id=f"DEC-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+        decision_id=f"DEC-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
         mitigation_id=mitigation_id,
         decision_status="Rejected",
-        decided_at=datetime.utcnow(),
+        decided_at=datetime.now(timezone.utc).replace(tzinfo=None),
         user_notes="Rejected via SupplyChain IQ Dashboard"
     )
     db.add(decision)
@@ -231,3 +250,18 @@ def export_entity(entity: str, db: Session = Depends(get_db)):
         return {"status": "success", "export_path": path, "rows": len(df)}
     else:
         raise HTTPException(status_code=400, detail="Invalid entity for export. Supported: shortages, exceptions")
+
+@app.post("/api/simulation/run")
+def api_run_simulation(
+    run_name: str = "Scenario Run",
+    demand_multiplier: float = 1.0,
+    supplier_capacity_multiplier: float = 1.0,
+    lead_time_delay_days: int = 0,
+    db: Session = Depends(get_db)
+):
+    sim = run_simulation(db, run_name, demand_multiplier, supplier_capacity_multiplier, lead_time_delay_days)
+    return sim
+
+@app.get("/api/simulation/history")
+def get_simulation_history(db: Session = Depends(get_db)):
+    return db.query(SimulationRun).order_by(SimulationRun.created_at.desc()).all()
