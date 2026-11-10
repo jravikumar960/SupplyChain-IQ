@@ -179,7 +179,13 @@ py -m pip install -r backend/requirements.txt
 # Initialize synthetic database and run startup migrations
 py scripts/init_app.py
 ```
-*Note: `init_app.py` initializes the SQLite database and populates synthetic operational data. Review local database settings before running if preserving existing custom records.*
+
+> **⚠️ Database Warning — Destructive Initialization**
+>
+> Running `py scripts/init_app.py` executes a full database reset (`reset=True`). It drops all existing database tables and records before recreating the schema and populating the default synthetic dataset.
+>
+> **Do not run this command against a database containing operational or custom data.** Back up your database file (`data/supplychain_iq.db`) before initialization, or configure a separate development/test database if you need to preserve existing data.
+
 ```powershell
 # Start the FastAPI backend server
 py -m uvicorn backend.app.main:app --reload --port 8000
