@@ -1,18 +1,22 @@
 # SupplyChain IQ — Intelligent Demand & Inventory Optimization System
 
-SupplyChain IQ is a full-stack enterprise application built for demand forecasting, inventory projection, shortage detection, supplier capacity validation, and automated mitigation recommendations.
+SupplyChain IQ is a full-stack enterprise application built for demand forecasting, deterministic multi-echelon inventory projection, shortage detection, supplier capacity validation, and automated rule-based mitigation recommendations.
+
+## Prerequisites
+- Python 3.11+ (with `py` launcher on Windows)
+- Node.js 18+ & npm
 
 ## Quick Start (PowerShell)
 
 ### 1. Backend Setup & Startup
 ```powershell
-# Install python dependencies
+# Install Python dependencies
 py -m pip install -r backend/requirements.txt
 
-# Generate synthetic dataset and run engines
+# Generate synthetic dataset and run optimization engine
 py scripts/init_app.py
 
-# Run backend FastAPI server
+# Run backend FastAPI server (with automatic SQLite schema migration on startup)
 py -m uvicorn backend.app.main:app --reload --port 8000
 ```
 
@@ -22,7 +26,7 @@ cd frontend
 npm install
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3001](http://localhost:3001) in your browser.
 
 ### 3. Running Automated Tests
 ```powershell
