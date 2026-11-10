@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { runSimulation, fetchSimulationHistory } from '../services/api';
-import { Sliders, Play, AlertTriangle, DollarSign, Activity, Package, MapPin, AlertCircle } from 'lucide-react';
+import { Sliders, Play, AlertTriangle, DollarSign, Activity, Package, MapPin, AlertCircle, ArrowUpRight, ArrowDownRight, Layers, Sparkles, History } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 
 export function ScenarioSimulation() {
@@ -57,29 +57,32 @@ export function ScenarioSimulation() {
   };
 
   const chartData = currentResult ? [
-    { metric: 'Shortage Count', Baseline: currentResult.baseline_shortages_count, Simulated: currentResult.simulated_shortages_count },
-    { metric: 'Shortage Qty (Units)', Baseline: currentResult.baseline_total_shortage_qty, Simulated: currentResult.simulated_total_shortage_qty },
-    { metric: 'Backorders (Units)', Baseline: currentResult.baseline_backorder_qty, Simulated: currentResult.simulated_backorder_qty },
-    { metric: 'Safety Deficit (Units)', Baseline: currentResult.baseline_safety_deficit, Simulated: currentResult.simulated_safety_deficit },
-    { metric: 'Financial Exposure ($k)', Baseline: Math.round(currentResult.baseline_exposure_value / 1000), Simulated: Math.round(currentResult.simulated_exposure_value / 1000) }
+    { metric: 'Shortages', Baseline: currentResult.baseline_shortages_count, Simulated: currentResult.simulated_shortages_count },
+    { metric: 'Qty (k)', Baseline: Math.round(currentResult.baseline_total_shortage_qty / 1000), Simulated: Math.round(currentResult.simulated_total_shortage_qty / 1000) },
+    { metric: 'Backorders (k)', Baseline: Math.round(currentResult.baseline_backorder_qty / 1000), Simulated: Math.round(currentResult.simulated_backorder_qty / 1000) },
+    { metric: 'Safety Deficit (k)', Baseline: Math.round(currentResult.baseline_safety_deficit / 1000), Simulated: Math.round(currentResult.simulated_safety_deficit / 1000) },
+    { metric: 'Exposure ($k)', Baseline: Math.round(currentResult.baseline_exposure_value / 1000), Simulated: Math.round(currentResult.simulated_exposure_value / 1000) }
   ] : [];
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      {/* Title Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center space-x-3">
-            <Sliders className="w-7 h-7 text-blue-600" />
-            <span>Scenario Analysis & What-If Simulation Engine</span>
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Genuine sequential inventory projection testing demand surges, supplier capacity reductions, and lead-time delays.
+          <div className="flex items-center space-x-2">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Scenario Analysis & What-If Simulation Engine</h1>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              Interactive
+            </span>
+          </div>
+          <p className="text-slate-500 text-xs mt-1">
+            Deterministic sequential inventory projection testing demand surges, supplier capacity reductions, and lead-time delays.
           </p>
         </div>
       </div>
 
       {errorMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl flex items-center space-x-3">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-5 py-4 rounded-xl flex items-center space-x-3 text-xs font-semibold shadow-xs">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
@@ -87,28 +90,31 @@ export function ScenarioSimulation() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Simulation Parameter Controls */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1">
-          <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
-            <Activity className="w-5 h-5 text-blue-600" />
-            <span>Simulation Parameters</span>
-          </h3>
+        <div className="bg-white p-6 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-200/80 lg:col-span-1 space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+              <Sliders className="w-4 h-4 text-blue-600" />
+              <span>Simulation Controls</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">Configure macroeconomic or network shocks.</p>
+          </div>
 
-          <form onSubmit={handleRunSimulation} className="space-y-6">
+          <form onSubmit={handleRunSimulation} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Scenario Name</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Scenario Label</label>
               <input
                 type="text"
                 value={runName}
                 onChange={(e) => setRunName(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 transition-all"
                 required
               />
             </div>
 
-            <div>
-              <div className="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                <span>Demand Multiplier</span>
-                <span className="text-blue-600">{demandMultiplier}x (1.0–2.0)</span>
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-2">
+              <div className="flex justify-between text-xs font-bold text-slate-700">
+                <span>Demand Surge Multiplier</span>
+                <span className="text-blue-600 font-extrabold">{demandMultiplier.toFixed(2)}x (+{Math.round((demandMultiplier - 1.0) * 100)}%)</span>
               </div>
               <input
                 type="range"
@@ -117,14 +123,15 @@ export function ScenarioSimulation() {
                 step="0.05"
                 value={demandMultiplier}
                 onChange={(e) => setDemandMultiplier(parseFloat(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-blue-600 cursor-pointer"
               />
+              <span className="text-[10px] text-slate-400 block">Baseline demand scaled up to 200%.</span>
             </div>
 
-            <div>
-              <div className="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                <span>Supplier Capacity Multiplier</span>
-                <span className="text-blue-600">{capacityMultiplier}x (0.5–1.0)</span>
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-2">
+              <div className="flex justify-between text-xs font-bold text-slate-700">
+                <span>Supplier Capacity Disruption</span>
+                <span className="text-blue-600 font-extrabold">{capacityMultiplier.toFixed(2)}x ({Math.round((1.0 - capacityMultiplier) * 100)}% cut)</span>
               </div>
               <input
                 type="range"
@@ -133,14 +140,15 @@ export function ScenarioSimulation() {
                 step="0.05"
                 value={capacityMultiplier}
                 onChange={(e) => setCapacityMultiplier(parseFloat(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-blue-600 cursor-pointer"
               />
+              <span className="text-[10px] text-slate-400 block">Reduces weekly supplier delivery throughput.</span>
             </div>
 
-            <div>
-              <div className="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                <span>Lead Time Delay (Days)</span>
-                <span className="text-blue-600">+{delayDays} Days (0–21)</span>
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-2">
+              <div className="flex justify-between text-xs font-bold text-slate-700">
+                <span>Inbound Lead Time Delay</span>
+                <span className="text-blue-600 font-extrabold">+{delayDays} Days</span>
               </div>
               <input
                 type="range"
@@ -149,17 +157,18 @@ export function ScenarioSimulation() {
                 step="1"
                 value={delayDays}
                 onChange={(e) => setDelayDays(parseInt(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-blue-600 cursor-pointer"
               />
+              <span className="text-[10px] text-slate-400 block">Simulates port congestion or transit delays.</span>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all disabled:opacity-50 text-xs"
             >
-              <Play className="w-4 h-4" />
-              <span>{loading ? 'Running Sequential Projection...' : 'Run Scenario Simulation'}</span>
+              <Play className="w-3.5 h-3.5" />
+              <span>{loading ? 'Executing Projection Engine...' : 'Run Scenario Simulation'}</span>
             </button>
           </form>
         </div>
@@ -168,89 +177,97 @@ export function ScenarioSimulation() {
         <div className="space-y-6 lg:col-span-2">
           {currentResult ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              {/* Top Delta Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="bg-white p-5 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-200/80">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Shortage Count</p>
-                      <h4 className="text-3xl font-extrabold text-slate-900 mt-2">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Simulated Shortages</p>
+                      <h4 className="text-2xl font-black text-slate-900 mt-1">
                         {currentResult.simulated_shortages_count}
-                        <span className={`text-sm font-bold ml-2 ${currentResult.simulated_shortages_count >= currentResult.baseline_shortages_count ? 'text-red-600' : 'text-green-600'}`}>
+                        <span className={`text-xs font-bold ml-1.5 ${currentResult.simulated_shortages_count >= currentResult.baseline_shortages_count ? 'text-rose-600' : 'text-emerald-600'}`}>
                           ({currentResult.simulated_shortages_count - currentResult.baseline_shortages_count >= 0 ? '+' : ''}{currentResult.simulated_shortages_count - currentResult.baseline_shortages_count})
                         </span>
                       </h4>
-                      <p className="text-xs text-slate-500 mt-1">Baseline: {currentResult.baseline_shortages_count}</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Baseline: {currentResult.baseline_shortages_count} events</p>
                     </div>
-                    <div className="bg-red-50 p-3 rounded-2xl text-red-600">
-                      <AlertTriangle className="w-8 h-8" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Backorders & Deficit</p>
-                      <h4 className="text-3xl font-extrabold text-slate-900 mt-2">
-                        {currentResult.simulated_backorder_qty.toLocaleString()}
-                        <span className="text-sm font-bold text-slate-500 ml-1">units</span>
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-1">Safety Deficit: {currentResult.simulated_safety_deficit.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-orange-50 p-3 rounded-2xl text-orange-600">
-                      <Package className="w-8 h-8" />
+                    <div className="bg-rose-50 p-2.5 rounded-xl text-rose-600">
+                      <AlertTriangle className="w-5 h-5" />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div className="bg-white p-5 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-200/80">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Financial Exposure</p>
-                      <h4 className="text-3xl font-extrabold text-slate-900 mt-2">
-                        ${currentResult.simulated_exposure_value.toLocaleString()}
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Backorders & Deficit</p>
+                      <h4 className="text-2xl font-black text-slate-900 mt-1">
+                        {(currentResult.simulated_backorder_qty / 1000).toFixed(1)}k
+                        <span className="text-xs font-normal text-slate-400 ml-1">units</span>
                       </h4>
-                      <p className="text-xs text-slate-500 mt-1">Baseline: ${currentResult.baseline_exposure_value.toLocaleString()}</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Safety Deficit: {(currentResult.simulated_safety_deficit / 1000).toFixed(1)}k units</p>
                     </div>
-                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-600">
-                      <DollarSign className="w-8 h-8" />
+                    <div className="bg-orange-50 p-2.5 rounded-xl text-orange-600">
+                      <Package className="w-5 h-5" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-200/80">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Financial Exposure</p>
+                      <h4 className="text-2xl font-black text-slate-900 mt-1">
+                        ${(currentResult.simulated_exposure_value / 1000).toFixed(1)}k
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1">Baseline: ${(currentResult.baseline_exposure_value / 1000).toFixed(1)}k</p>
+                    </div>
+                    <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600">
+                      <DollarSign className="w-5 h-5" />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 text-center">
-                  <p className="text-xs font-semibold text-slate-400">Affected SKUs</p>
-                  <p className="text-xl font-bold text-slate-900 mt-1">{currentResult.affected_skus_count}</p>
+              {/* Sub-Metrics Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Affected SKUs</p>
+                  <p className="text-lg font-black text-slate-900 mt-0.5">{currentResult.affected_skus_count}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 text-center">
-                  <p className="text-xs font-semibold text-slate-400">Affected Locations</p>
-                  <p className="text-xl font-bold text-slate-900 mt-1">{currentResult.affected_locations_count}</p>
+                <div className="bg-white p-4 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Affected Locations</p>
+                  <p className="text-lg font-black text-slate-900 mt-0.5">{currentResult.affected_locations_count}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 text-center">
-                  <p className="text-xs font-semibold text-slate-400">Missing Unit Costs</p>
-                  <p className="text-xl font-bold text-slate-900 mt-1">{currentResult.missing_unit_cost_count}</p>
+                <div className="bg-white p-4 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Missing Unit Costs</p>
+                  <p className="text-lg font-black text-slate-900 mt-0.5">{currentResult.missing_unit_cost_count}</p>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">Sequential Projection: Baseline vs. Simulated Comparison</h3>
-                <div className="h-72">
+              {/* Baseline vs Simulated Comparison Chart */}
+              <div className="bg-white p-6 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-200/80">
+                <div className="mb-4">
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">Scenario Delta: Baseline vs. Simulated Projection</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Direct comparison across core shortage metrics.</p>
+                </div>
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis dataKey="metric" stroke="#64748b" />
-                      <YAxis stroke="#64748b" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="Baseline" fill="#94a3b8" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="Simulated" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="metric" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                      <Bar dataKey="Baseline" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Simulated" fill="#2563eb" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700">
-                  <strong>Projection Summary:</strong> {currentResult.summary_notes}
+                <div className="mt-4 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-600 leading-relaxed">
+                  <span className="font-bold text-slate-800">Projection Summary:</span> {currentResult.summary_notes}
                 </div>
               </div>
             </>
@@ -261,31 +278,40 @@ export function ScenarioSimulation() {
           )}
 
           {/* Simulation History Table */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Simulation History</h3>
+          <div className="bg-white p-6 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-slate-200/80">
+            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center space-x-2">
+              <History className="w-4 h-4 text-slate-500" />
+              <span>Historical Simulation Runs</span>
+            </h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase">
-                    <th className="py-3 px-4">Scenario Name</th>
-                    <th className="py-3 px-4">Demand</th>
-                    <th className="py-3 px-4">Capacity</th>
-                    <th className="py-3 px-4">Delay</th>
-                    <th className="py-3 px-4">Sim. Shortages</th>
-                    <th className="py-3 px-4">Sim. Exposure</th>
-                    <th className="py-3 px-4">Date</th>
+                  <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-2.5 px-3">Scenario Name</th>
+                    <th className="py-2.5 px-3">Demand</th>
+                    <th className="py-2.5 px-3">Capacity</th>
+                    <th className="py-2.5 px-3">Delay</th>
+                    <th className="py-2.5 px-3">Sim. Shortages</th>
+                    <th className="py-2.5 px-3">Sim. Exposure</th>
+                    <th className="py-2.5 px-3 text-right">Run Date</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
+                <tbody className="divide-y divide-slate-100">
                   {history.map((h) => (
-                    <tr key={h.simulation_id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setCurrentResult(h)}>
-                      <td className="py-3 px-4 font-semibold text-slate-900">{h.run_name}</td>
-                      <td className="py-3 px-4">{h.demand_multiplier}x</td>
-                      <td className="py-3 px-4">{h.supplier_capacity_multiplier}x</td>
-                      <td className="py-3 px-4">+{h.lead_time_delay_days}d</td>
-                      <td className="py-3 px-4 font-bold text-red-600">{h.simulated_shortages_count}</td>
-                      <td className="py-3 px-4">${h.simulated_exposure_value.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-slate-500">{new Date(h.created_at).toLocaleDateString()}</td>
+                    <tr
+                      key={h.simulation_id}
+                      className={`hover:bg-slate-50 cursor-pointer transition-colors ${
+                        currentResult?.simulation_id === h.simulation_id ? 'bg-blue-50/50 font-semibold' : ''
+                      }`}
+                      onClick={() => setCurrentResult(h)}
+                    >
+                      <td className="py-2.5 px-3 font-medium text-slate-900">{h.run_name}</td>
+                      <td className="py-2.5 px-3 text-blue-600 font-bold">{h.demand_multiplier}x</td>
+                      <td className="py-2.5 px-3 text-slate-600">{h.supplier_capacity_multiplier}x</td>
+                      <td className="py-2.5 px-3 text-slate-600">+{h.lead_time_delay_days}d</td>
+                      <td className="py-2.5 px-3 font-bold text-rose-600">{h.simulated_shortages_count}</td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-800">${h.simulated_exposure_value.toLocaleString()}</td>
+                      <td className="py-2.5 px-3 text-right text-slate-400">{new Date(h.created_at).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>

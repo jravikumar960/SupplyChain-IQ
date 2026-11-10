@@ -41,6 +41,8 @@ export interface MitigationOption {
   expected_arrival_date: string;
   service_impact: string;
   feasibility_status: string;
+  feasibility_explanation?: string;
+  supplier_id?: string;
   recommendation_score: number;
   is_approved: boolean;
 }
@@ -87,4 +89,16 @@ export interface EvaluationMetrics {
   data_integrity_score_pct: number;
   anomaly_detection_rate_pct: number;
   total_anomalies_detected: number;
+}
+
+export interface PurchaseOrder {
+  po_id: string;
+  supplier_id: string;
+  sku_id: string;
+  location_id: string;
+  ordered_quantity: number;
+  received_quantity: number;
+  expected_delivery_date: string;
+  status: string;
+  is_duplicate: boolean;
 }

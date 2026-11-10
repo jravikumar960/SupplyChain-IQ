@@ -45,6 +45,11 @@ export async function fetchInventory() {
   return res.json();
 }
 
+export async function fetchPurchaseOrders(skip = 0, limit = 100) {
+  const res = await fetch(`${API_BASE}/purchase-orders?skip=${skip}&limit=${limit}`);
+  return res.json();
+}
+
 export async function fetchExceptions() {
   const res = await fetch(`${API_BASE}/exceptions`);
   return res.json();

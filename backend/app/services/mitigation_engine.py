@@ -61,7 +61,6 @@ def generate_mitigations_for_shortages(db: Session, limit: int = None):
 
             lt = lead_times_by_sku.get((cap.supplier_id, s.sku_id))
             avg_lead_days = lt.average_days if lt else 14
-            expected_delivery = shortage_date - timedelta(days=5)
             expected_arrival_str = (shortage_date - timedelta(days=max(0, 7 - avg_lead_days))).strftime("%Y-%m-%d")
 
             req_qty = max(s.shortage_quantity, cap.minimum_order_quantity)
@@ -71,13 +70,23 @@ def generate_mitigations_for_shortages(db: Session, limit: int = None):
             moq_feasible = req_qty >= cap.minimum_order_quantity
             lead_time_feasible = avg_lead_days <= 21
 
-            if capacity_feasible and moq_feasible and lead_time_feasible:
+            reasons = []
+            if not capacity_feasible:
+                reasons.append(f"Requested quantity ({req_qty:.2f}) exceeds weekly supplier capacity ({cap.weekly_capacity:.2f})")
+            if not moq_feasible:
+                reasons.append(f"Requested quantity ({req_qty:.2f}) is below Minimum Order Quantity ({cap.minimum_order_quantity:.2f})")
+            if not lead_time_feasible:
+                reasons.append(f"Average lead time ({avg_lead_days} days) exceeds maximum threshold of 21 days")
+
+            if not reasons:
                 feasibility_status = "Feasible"
+                feasibility_explanation = f"Supplier {cap.supplier_id} ({supplier.supplier_name}) meets weekly capacity ({cap.weekly_capacity:.2f}), MOQ ({cap.minimum_order_quantity:.2f}), and lead time ({avg_lead_days} days) constraints."
                 reliability = supplier.reliability_score
                 lead_score = max(0.0, 15.0 - (avg_lead_days / 2.0))
                 score = round(70.0 + (reliability * 15.0) + lead_score, 2)
             else:
                 feasibility_status = "Infeasible"
+                feasibility_explanation = f"Supplier {cap.supplier_id} ({supplier.supplier_name}) infeasible: {'; '.join(reasons)}."
                 score = 15.0
 
             est_cost = round(req_qty * unit_cost, 2)
@@ -91,6 +100,8 @@ def generate_mitigations_for_shortages(db: Session, limit: int = None):
                 expected_arrival_date=expected_arrival_str,
                 service_impact="High" if s.severity == "Critical" else "Medium",
                 feasibility_status=feasibility_status,
+                feasibility_explanation=feasibility_explanation,
+                supplier_id=cap.supplier_id,
                 recommendation_score=score,
                 is_approved=False
             ))
@@ -101,9 +112,11 @@ def generate_mitigations_for_shortages(db: Session, limit: int = None):
         for sub in sku_subs:
             if not sub.is_approved:
                 feasibility_status = "Infeasible"
+                feasibility_explanation = f"Substitute SKU {sub.substitute_sku_id} lacks formal engineering approval (is_approved=False)."
                 score = 0.0
             else:
                 feasibility_status = "Feasible"
+                feasibility_explanation = f"Substitute SKU {sub.substitute_sku_id} is formally approved with compatible specifications."
                 score = 80.0
 
             mitigations_to_add.append(MitigationOption(
@@ -115,6 +128,8 @@ def generate_mitigations_for_shortages(db: Session, limit: int = None):
                 expected_arrival_date=s.week_start,
                 service_impact="Medium",
                 feasibility_status=feasibility_status,
+                feasibility_explanation=feasibility_explanation,
+                supplier_id=None,
                 recommendation_score=score,
                 is_approved=False
             ))
@@ -130,6 +145,8 @@ def generate_mitigations_for_shortages(db: Session, limit: int = None):
             expected_arrival_date=s.week_start,
             service_impact="High",
             feasibility_status="Feasible",
+            feasibility_explanation=f"Production increase of {s.shortage_quantity:.2f} units is feasible within facility production schedule and capacity.",
+            supplier_id=None,
             recommendation_score=75.0,
             is_approved=False
         ))

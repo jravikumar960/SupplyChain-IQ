@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 import pandas as pd
 import os
 
-from backend.app.database import get_db, SessionLocal
+from contextlib import asynccontextmanager
+from backend.app.database import get_db, SessionLocal, run_database_migrations
 from backend.app.models.models import (
     SKU, Location, Supplier, Inventory, ForecastDemand, Shortage,
     MitigationOption, MitigationDecision, DataIssue, AuditLog, PurchaseOrder, SimulationRun
@@ -19,10 +20,16 @@ from backend.app.services.evaluation_engine import evaluate_system_performance
 from backend.app.services.audit_engine import log_audit_event
 from backend.app.services.simulation_engine import run_simulation
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    run_database_migrations()
+    yield
+
 app = FastAPI(
     title="SupplyChain IQ — Intelligent Demand & Inventory Optimization System",
     version="1.0.0",
-    description="Backend API for hackathon MVP"
+    description="Backend API for hackathon MVP",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -102,6 +109,10 @@ def get_suppliers(db: Session = Depends(get_db)):
 @app.get("/api/inventory")
 def get_inventory(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(Inventory).offset(skip).limit(limit).all()
+
+@app.get("/api/purchase-orders")
+def get_purchase_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return db.query(PurchaseOrder).offset(skip).limit(limit).all()
 
 @app.get("/api/demand")
 def get_demand(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

@@ -125,3 +125,18 @@ def test_rejection_workflow(mem_db):
     mem_db.commit()
 
     assert mit.is_approved is False
+
+def test_mitigation_explanations_and_supplier_fields(mem_db):
+    setup_mem_data(mem_db)
+    generate_mitigations_for_shortages(mem_db)
+
+    supplier_pos = mem_db.query(MitigationOption).filter_by(mitigation_type="SupplierPO").all()
+    for po_mit in supplier_pos:
+        assert po_mit.supplier_id is not None
+        assert po_mit.feasibility_explanation is not None
+        assert len(po_mit.feasibility_explanation) > 10
+
+    prod_mit = mem_db.query(MitigationOption).filter_by(mitigation_type="ProductionIncrease").first()
+    assert prod_mit is not None
+    assert prod_mit.feasibility_explanation is not None
+    assert "Production increase" in prod_mit.feasibility_explanation

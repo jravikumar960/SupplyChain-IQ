@@ -158,6 +158,8 @@ class MitigationOption(Base):
     expected_arrival_date = Column(String, nullable=False)
     service_impact = Column(String, nullable=False) # High, Medium, Low
     feasibility_status = Column(String, nullable=False, index=True) # Feasible, Infeasible, Unknown
+    feasibility_explanation = Column(Text, nullable=True)
+    supplier_id = Column(String, nullable=True)
     recommendation_score = Column(Float, nullable=False)
     is_approved = Column(Boolean, default=False, index=True)
 
